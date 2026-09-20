@@ -75,7 +75,28 @@ def load_audio_from_bytes(file_bytes: bytes, filename: str = "audio.wav"):
     except Exception:
         pass
 
-    # Strategy 2: librosa with temp file
+    # Strategy 2: imageio_ffmpeg subprocess (supports WebM, Opus, MP3, M4A, OGG, FLAC, AAC)
+    try:
+        import subprocess, imageio_ffmpeg
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        cmd = [
+            ffmpeg_exe, "-i", "pipe:0",
+            "-f", "f32le",
+            "-acodec", "pcm_f32le",
+            "-ac", "1",
+            "-ar", "16000",
+            "pipe:1"
+        ]
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        out, _ = proc.communicate(input=file_bytes)
+        if len(out) > 0:
+            audio = np.frombuffer(out, dtype=np.float32).copy()
+            if len(audio) > 0:
+                return audio, 16000
+    except Exception:
+        pass
+
+    # Strategy 3: librosa with temp file
     suffix = Path(filename).suffix or ".wav"
     try:
         import librosa

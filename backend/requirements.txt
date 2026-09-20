@@ -7,3 +7,4 @@ soundfile==0.12.1
 python-multipart==0.0.6
 requests>=2.31.0
 setuptools<70
+imageio-ffmpeg>=0.4.9

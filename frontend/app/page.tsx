@@ -214,6 +214,7 @@ export default function VoiceGuardPage() {
   const mediaRecRef = useRef<MediaRecorder | null>(null);
   const recChunksRef = useRef<Blob[]>([]);
   const pcmChunksRef = useRef<Float32Array[]>([]);
+  const allPcmChunksRef = useRef<Float32Array[]>([]);
   const sendIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const blobUrlRef = useRef<string | null>(null);
@@ -302,9 +303,14 @@ export default function VoiceGuardPage() {
       processor.connect(audioCtx.destination);
       processorRef.current = processor;
 
+      pcmChunksRef.current = [];
+      allPcmChunksRef.current = [];
+
       processor.onaudioprocess = (e) => {
         const data = e.inputBuffer.getChannelData(0);
-        pcmChunksRef.current.push(new Float32Array(data));
+        const copy = new Float32Array(data);
+        pcmChunksRef.current.push(copy);
+        allPcmChunksRef.current.push(copy);
       };
 
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -379,25 +385,35 @@ export default function VoiceGuardPage() {
       wsRef.current = null;
     }
 
+    const currentSampleRate = audioCtxRef.current?.sampleRate || 16000;
+
+    // Convert accumulated pristine PCM to lossless 16kHz WAV
+    const totalLen = allPcmChunksRef.current.reduce((s, a) => s + a.length, 0);
+    if (totalLen > 0) {
+      const combined = new Float32Array(totalLen);
+      let off = 0;
+      for (const c of allPcmChunksRef.current) { combined.set(c, off); off += c.length; }
+      const resampled = downsample(combined, currentSampleRate, 16000);
+      const wavBytes = encodeWAV(resampled, 16000);
+      const wavBlob = new Blob([wavBytes], { type: 'audio/wav' });
+      setRecordedBlob(wavBlob);
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = URL.createObjectURL(wavBlob);
+      setHasRecording(true);
+      // Automatic forensic analysis on complete lossless WAV
+      analyzeBlob(wavBlob, 'mic_capture.wav');
+    }
+
     if (processorRef.current) { processorRef.current.disconnect(); processorRef.current = null; }
     if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
     if (audioCtxRef.current) { audioCtxRef.current.close(); audioCtxRef.current = null; }
-
     if (mediaRecRef.current && mediaRecRef.current.state !== 'inactive') {
-      mediaRecRef.current.stop();
-      mediaRecRef.current.onstop = () => {
-        const blob = new Blob(recChunksRef.current, { type: 'audio/webm' });
-        setRecordedBlob(blob);
-        if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-        blobUrlRef.current = URL.createObjectURL(blob);
-        setHasRecording(true);
-        // Automatic full forensic analysis on complete captured audio
-        analyzeBlob(blob, 'mic_capture.webm');
-      };
+      try { mediaRecRef.current.stop(); } catch { /* */ }
     }
 
     setAnalyserNode(null);
     pcmChunksRef.current = [];
+    allPcmChunksRef.current = [];
     setIsRecording(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
