@@ -1,0 +1,8 @@
+[build-system]
+requires = ["setuptools<70", "wheel"]
+
+[project]
+name = "voiceguard-backend"
+version = "1.0.0"
+description = "VoiceGuard AI - Real-Time Voice Cloning Detection Backend"
+requires-python = ">=3.10"

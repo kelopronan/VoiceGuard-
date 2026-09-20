@@ -1,0 +1,712 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VoiceGuard AI — Dual Earth / Marine Claymorphic Design System
+   
+   Light Mode Palette:
+     #5C9EAD (Pacific Blue)
+     #FFFFFF (White)
+     #326273 (Blue Slate)
+     #EEEEEE (Platinum)
+     #E39774 (Tangerine Dream)
+     
+   Dark Mode Palette:
+     #606C38 (Olive Leaf)
+     #283618 (Black Forest)
+     #FEFAE0 (Cornsilk)
+     #DDA15E (Sunlit Clay)
+     #BC6C25 (Copperwood)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ─── Light Mode: Pacific Blue, Platinum & Tangerine ─── */
+  --bg-primary: #EEEEEE; /* Platinum */
+  --bg-secondary: #E4ECEE;
+  --bg-gradient-from: #F2F2F2;
+  --bg-gradient-to: #DCE5E8;
+  
+  --card-bg: rgba(255, 255, 255, 0.88); /* White */
+  --card-bg-elevated: #FFFFFF;
+  --card-border: rgba(92, 158, 173, 0.28);
+  --card-border-subtle: rgba(50, 98, 115, 0.18);
+
+  --text-primary: #326273; /* Blue Slate */
+  --text-secondary: #487A8C;
+  --text-muted: #6E8F9B;
+
+  /* Palette Mappings */
+  --verdict-human: #5C9EAD; /* Pacific Blue */
+  --verdict-human-bg: rgba(92, 158, 173, 0.14);
+  --verdict-uncertain: #326273; /* Blue Slate */
+  --verdict-uncertain-bg: rgba(50, 98, 115, 0.14);
+  --verdict-synthetic: #E39774; /* Tangerine Dream */
+  --verdict-synthetic-bg: rgba(227, 151, 116, 0.18);
+
+  --olive: #5C9EAD;
+  --olive-light: #77B3C0;
+  --olive-bg: rgba(92, 158, 173, 0.14);
+
+  --forest: #326273;
+  --cornsilk: #FFFFFF;
+  
+  --clay: #E39774;
+  --clay-light: #EDB093;
+  --clay-bg: rgba(227, 151, 116, 0.18);
+
+  --copper: #E39774;
+  --copper-dark: #CB7953;
+  --copper-bg: rgba(227, 151, 116, 0.18);
+
+  /* Clay Shadows (Soft light on platinum) */
+  --clay-outer-1: rgba(50, 98, 115, 0.12);
+  --clay-outer-2: rgba(255, 255, 255, 0.98);
+  --clay-inner-1: rgba(255, 255, 255, 0.95);
+  --clay-inner-2: rgba(50, 98, 115, 0.05);
+
+  --gauge-track: rgba(92, 158, 173, 0.14);
+  --canvas-bg: rgba(92, 158, 173, 0.04);
+  --canvas-bg2: rgba(227, 151, 116, 0.08);
+  --dropzone-border: rgba(92, 158, 173, 0.38);
+  --dropzone-bg: rgba(92, 158, 173, 0.04);
+
+  --tag-shadow-1: rgba(50, 98, 115, 0.08);
+  --tag-shadow-2: rgba(255, 255, 255, 0.9);
+  --row-bg: rgba(255, 255, 255, 0.75);
+  --scrollbar-thumb: #5C9EAD;
+}
+
+.dark {
+  /* ─── Dark Mode: Black Forest, Olive Leaf & Sunlit Clay ─── */
+  --bg-primary: #151D0D;
+  --bg-secondary: #1F2A13;
+  --bg-gradient-from: #131A0B;
+  --bg-gradient-to: #283618;
+
+  --card-bg: rgba(35, 47, 21, 0.82);
+  --card-bg-elevated: rgba(43, 58, 26, 0.9);
+  --card-border: rgba(96, 108, 56, 0.42);
+  --card-border-subtle: rgba(221, 161, 94, 0.28);
+
+  --text-primary: #FEFAE0; /* Cornsilk */
+  --text-secondary: #DDA15E; /* Sunlit Clay */
+  --text-muted: #9AA47B;
+
+  --verdict-human: #606C38; /* Olive Leaf */
+  --verdict-human-bg: rgba(96, 108, 56, 0.26);
+  --verdict-uncertain: #DDA15E; /* Sunlit Clay */
+  --verdict-uncertain-bg: rgba(221, 161, 94, 0.22);
+  --verdict-synthetic: #BC6C25; /* Copperwood */
+  --verdict-synthetic-bg: rgba(188, 108, 37, 0.25);
+
+  --olive: #738344;
+  --olive-light: #8E9F56;
+  --olive-bg: rgba(96, 108, 56, 0.26);
+
+  --forest: #283618;
+  --cornsilk: #FEFAE0;
+
+  --clay: #DDA15E;
+  --clay-light: #EBB983;
+  --clay-bg: rgba(221, 161, 94, 0.22);
+
+  --copper: #BC6C25;
+  --copper-dark: #995318;
+  --copper-bg: rgba(188, 108, 37, 0.25);
+
+  --clay-outer-1: rgba(6, 9, 3, 0.75);
+  --clay-outer-2: rgba(60, 80, 36, 0.3);
+  --clay-inner-1: rgba(254, 250, 224, 0.08);
+  --clay-inner-2: rgba(0, 0, 0, 0.35);
+
+  --gauge-track: rgba(96, 108, 56, 0.22);
+  --canvas-bg: rgba(17, 24, 10, 0.75);
+  --canvas-bg2: rgba(35, 48, 22, 0.55);
+  --dropzone-border: rgba(221, 161, 94, 0.38);
+  --dropzone-bg: rgba(35, 47, 21, 0.5);
+
+  --tag-shadow-1: rgba(0, 0, 0, 0.45);
+  --tag-shadow-2: rgba(50, 68, 30, 0.25);
+  --row-bg: rgba(43, 58, 26, 0.55);
+  --scrollbar-thumb: #606C38;
+}
+
+/* ─── Base ────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+
+body {
+  background: linear-gradient(145deg, var(--bg-gradient-from), var(--bg-secondary) 45%, var(--bg-gradient-to));
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.6;
+  transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s ease;
+}
+
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 10px; }
+
+/* ─── Clay Card ───────────────────────────────────────────────────────────── */
+.clay-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 24px;
+  border: 1px solid var(--card-border);
+  box-shadow:
+    8px 8px 22px var(--clay-outer-1),
+    -6px -6px 18px var(--clay-outer-2),
+    inset 2px 2px 4px var(--clay-inner-1),
+    inset -1px -1px 3px var(--clay-inner-2);
+  padding: 24px;
+  transition: box-shadow 0.35s ease, background 0.5s ease, border-color 0.5s ease, transform 0.3s ease;
+}
+
+.clay-card:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    10px 10px 26px var(--clay-outer-1),
+    -7px -7px 20px var(--clay-outer-2),
+    inset 2px 2px 5px var(--clay-inner-1),
+    inset -1px -1px 3px var(--clay-inner-2);
+}
+
+.clay-card-compact {
+  padding: 16px 18px;
+  border-radius: 18px;
+}
+
+/* ─── Card Header ─────────────────────────────────────────────────────────── */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-weight: 800;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--text-secondary);
+  transition: color 0.4s ease;
+}
+
+.card-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    4px 4px 10px var(--clay-outer-1),
+    -3px -3px 8px var(--clay-outer-2),
+    inset 1px 1px 2px var(--clay-inner-1);
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+
+/* ─── Clay Buttons ────────────────────────────────────────────────────────── */
+.clay-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 20px;
+  border: 1px solid var(--card-border);
+  border-radius: 50px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  box-shadow:
+    5px 5px 14px var(--clay-outer-1),
+    -4px -4px 10px var(--clay-outer-2),
+    inset 1px 1px 3px var(--clay-inner-1),
+    inset -1px -1px 2px var(--clay-inner-2);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.clay-btn:hover {
+  transform: translateY(-2px) scale(1.03);
+}
+
+.clay-btn:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: inset 5px 5px 10px var(--clay-outer-1), inset -3px -3px 8px var(--clay-outer-2);
+}
+
+.clay-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Primary Action (Pacific Blue in Light, Olive Leaf in Dark) */
+.clay-btn-olive {
+  background: linear-gradient(135deg, var(--olive-light), var(--olive));
+  color: #FFFFFF;
+  border-color: rgba(92, 158, 173, 0.4);
+  box-shadow:
+    5px 5px 15px rgba(92, 158, 173, 0.28),
+    -3px -3px 10px var(--clay-outer-2),
+    inset 1px 1px 2px rgba(255, 255, 255, 0.35);
+}
+
+.dark .clay-btn-olive {
+  color: #FEFAE0;
+  border-color: rgba(96, 108, 56, 0.4);
+  box-shadow:
+    5px 5px 15px rgba(96, 108, 56, 0.3),
+    -3px -3px 10px var(--clay-outer-2),
+    inset 1px 1px 2px rgba(254, 250, 224, 0.3);
+}
+
+/* Secondary Accent (Tangerine Dream in Light, Sunlit Clay in Dark) */
+.clay-btn-clay {
+  background: linear-gradient(135deg, var(--clay-light), var(--clay));
+  color: #FFFFFF;
+  border-color: rgba(227, 151, 116, 0.4);
+  box-shadow:
+    5px 5px 15px rgba(227, 151, 116, 0.28),
+    -3px -3px 10px var(--clay-outer-2),
+    inset 1px 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+.dark .clay-btn-clay {
+  color: #283618;
+  border-color: rgba(221, 161, 94, 0.4);
+  box-shadow:
+    5px 5px 15px rgba(221, 161, 94, 0.3),
+    -3px -3px 10px var(--clay-outer-2),
+    inset 1px 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+/* Synthetic Alert Action (Tangerine in Light, Copperwood in Dark) */
+.clay-btn-copper {
+  background: linear-gradient(135deg, var(--copper), var(--copper-dark));
+  color: #FFFFFF;
+  border-color: rgba(227, 151, 116, 0.4);
+  box-shadow:
+    5px 5px 15px rgba(227, 151, 116, 0.3),
+    -3px -3px 10px var(--clay-outer-2),
+    inset 1px 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+.dark .clay-btn-copper {
+  color: #FEFAE0;
+  border-color: rgba(188, 108, 37, 0.4);
+  box-shadow:
+    5px 5px 15px rgba(188, 108, 37, 0.3),
+    -3px -3px 10px var(--clay-outer-2),
+    inset 1px 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+.clay-btn-sm { padding: 6px 14px; font-size: 0.76rem; }
+
+/* ─── Clay Tabs ───────────────────────────────────────────────────────────── */
+.clay-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 50px;
+  background: var(--canvas-bg);
+  border: 1px solid var(--card-border-subtle);
+  box-shadow: inset 2px 2px 4px var(--clay-outer-1);
+}
+
+.clay-tab-item {
+  padding: 4px 12px;
+  border-radius: 50px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+  border: none;
+  background: transparent;
+}
+
+.clay-tab-item.active {
+  background: var(--card-bg-elevated);
+  color: var(--text-primary);
+  box-shadow: 2px 2px 6px var(--clay-outer-1), inset 1px 1px 2px var(--clay-inner-1);
+}
+
+/* ─── Theme Toggle ────────────────────────────────────────────────────────── */
+.theme-toggle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--clay);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    5px 5px 14px var(--clay-outer-1),
+    -4px -4px 10px var(--clay-outer-2),
+    inset 1px 1px 3px var(--clay-inner-1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-toggle:hover { transform: scale(1.1); }
+.theme-toggle:active { transform: scale(0.92); box-shadow: inset 4px 4px 8px var(--clay-outer-1); }
+
+.theme-toggle-icon {
+  transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55), opacity 0.3s ease;
+}
+
+.theme-toggle-icon.spin { transform: rotate(360deg); }
+
+/* ─── Record Button (Tangerine Dream / Copperwood) ─────────────────────────── */
+.record-btn {
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  background: linear-gradient(135deg, var(--copper), var(--copper-dark));
+  color: #FFFFFF;
+  box-shadow:
+    6px 6px 18px rgba(227, 151, 116, 0.4),
+    -4px -4px 14px var(--clay-outer-2),
+    inset 2px 2px 4px rgba(255, 255, 255, 0.3),
+    inset -1px -1px 3px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  z-index: 2;
+}
+
+.dark .record-btn {
+  color: #FEFAE0;
+  box-shadow:
+    6px 6px 18px rgba(188, 108, 37, 0.45),
+    -4px -4px 14px var(--clay-outer-2),
+    inset 2px 2px 4px rgba(254, 250, 224, 0.25),
+    inset -1px -1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.record-btn:hover { transform: scale(1.08); }
+.record-btn:active { transform: scale(0.94); }
+.record-btn.recording { animation: pulse-record 1.5s ease-in-out infinite; }
+
+.record-ring {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  z-index: 1;
+  transition: border-color 0.3s ease;
+}
+
+.record-btn.recording ~ .record-ring {
+  border-color: rgba(227, 151, 116, 0.5);
+  animation: pulse-ring 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-record {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+@keyframes pulse-ring {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 0.1; }
+}
+
+/* ─── Trust Gauge ─────────────────────────────────────────────────────────── */
+.gauge-bg {
+  fill: none;
+  stroke: var(--gauge-track);
+  stroke-width: 11;
+}
+
+.gauge-fill {
+  fill: none;
+  stroke-width: 11;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s ease;
+}
+
+.gauge-score {
+  font-size: 2.7rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--text-primary);
+  transition: color 0.5s ease;
+}
+
+.gauge-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 3px 12px;
+  border-radius: 50px;
+  display: inline-block;
+  margin-top: 5px;
+  transition: all 0.4s ease;
+}
+
+/* ─── Waveform Canvas ─────────────────────────────────────────────────────── */
+.waveform-wrap {
+  flex: 1;
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--canvas-bg), var(--canvas-bg2));
+  min-height: 190px;
+  transition: background 0.5s ease;
+  border: 1px solid var(--card-border-subtle);
+}
+
+.waveform-wrap canvas { width: 100%; height: 100%; display: block; }
+
+.waveform-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--card-bg-elevated);
+  padding: 3px 10px;
+  border-radius: 50px;
+  border: 1px solid var(--card-border-subtle);
+  transition: all 0.4s ease;
+}
+
+/* ─── Alert Banner ────────────────────────────────────────────────────────── */
+.alert-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 24px;
+  border-radius: 18px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  border: 1px solid;
+  animation: slide-down 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+.alert-danger {
+  background: linear-gradient(135deg, var(--copper-bg), rgba(227, 151, 116, 0.08));
+  color: var(--copper);
+  border-color: rgba(227, 151, 116, 0.38);
+  box-shadow: 0 4px 24px rgba(227, 151, 116, 0.2);
+  animation: slide-down 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), pulse-alert 2s ease-in-out infinite;
+}
+
+.dark .alert-danger {
+  color: #E8B983;
+  border-color: rgba(188, 108, 37, 0.35);
+  box-shadow: 0 4px 24px rgba(188, 108, 37, 0.2);
+}
+
+.alert-safe {
+  background: linear-gradient(135deg, var(--olive-bg), rgba(92, 158, 173, 0.08));
+  color: var(--olive);
+  border-color: rgba(92, 158, 173, 0.35);
+  box-shadow: 0 4px 20px rgba(92, 158, 173, 0.18);
+}
+
+.dark .alert-safe {
+  color: #D7E59D;
+  border-color: rgba(96, 108, 56, 0.35);
+  box-shadow: 0 4px 20px rgba(96, 108, 56, 0.18);
+}
+
+@keyframes slide-down {
+  from { transform: translateY(-16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulse-alert {
+  0%, 100% { box-shadow: 0 4px 24px rgba(227, 151, 116, 0.2); }
+  50% { box-shadow: 0 4px 36px rgba(227, 151, 116, 0.35); }
+}
+
+/* ─── Clay Tags & Badges ─────────────────────────────────────────────────── */
+.clay-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 13px;
+  border-radius: 50px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow:
+    3px 3px 8px var(--tag-shadow-1),
+    -2px -2px 6px var(--tag-shadow-2),
+    inset 1px 1px 2px var(--clay-inner-1);
+  transition: all 0.4s ease;
+}
+
+.clay-tag-good {
+  background: var(--olive-bg);
+  color: var(--olive);
+  border-color: rgba(92, 158, 173, 0.3);
+}
+
+.dark .clay-tag-good {
+  background: var(--olive-bg);
+  color: #CDE08B;
+  border-color: rgba(96, 108, 56, 0.3);
+}
+
+.clay-tag-warn {
+  background: var(--clay-bg);
+  color: #C47954;
+  border-color: rgba(227, 151, 116, 0.35);
+}
+
+.dark .clay-tag-warn {
+  color: #F0C491;
+  border-color: rgba(221, 161, 94, 0.35);
+}
+
+.clay-tag-bad {
+  background: var(--copper-bg);
+  color: var(--copper);
+  border-color: rgba(227, 151, 116, 0.35);
+}
+
+.dark .clay-tag-bad {
+  color: #F19B53;
+  border-color: rgba(188, 108, 37, 0.35);
+}
+
+/* ─── Dropzone ────────────────────────────────────────────────────────────── */
+.dropzone {
+  width: 100%;
+  padding: 28px 20px;
+  border: 2px dashed var(--dropzone-border);
+  border-radius: 18px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--dropzone-bg);
+  transition: all 0.3s ease;
+}
+
+.dropzone:hover, .dropzone.dragover {
+  border-color: var(--clay);
+  background: rgba(227, 151, 116, 0.12);
+  transform: scale(1.01);
+}
+
+/* ─── History Table ───────────────────────────────────────────────────────── */
+.history-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 5px;
+}
+
+.history-table th {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  padding: 5px 10px;
+  text-align: left;
+  transition: color 0.4s ease;
+}
+
+.history-table td {
+  padding: 9px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: var(--row-bg);
+  transition: background 0.4s ease;
+}
+
+.history-table tr td:first-child { border-radius: 10px 0 0 10px; }
+.history-table tr td:last-child { border-radius: 0 10px 10px 0; }
+
+/* ─── Score Dots ──────────────────────────────────────────────────────────── */
+.score-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+.score-dot-human { background: var(--olive); box-shadow: 0 0 6px rgba(92, 158, 173, 0.6); }
+.score-dot-uncertain { background: var(--forest); box-shadow: 0 0 6px rgba(50, 98, 115, 0.5); }
+.score-dot-synthetic { background: var(--copper); box-shadow: 0 0 6px rgba(227, 151, 116, 0.6); }
+
+.dark .score-dot-human { background: #738344; box-shadow: 0 0 6px rgba(96, 108, 56, 0.6); }
+.dark .score-dot-uncertain { background: #DDA15E; box-shadow: 0 0 6px rgba(221, 161, 94, 0.6); }
+.dark .score-dot-synthetic { background: #BC6C25; box-shadow: 0 0 6px rgba(188, 108, 37, 0.6); }
+
+/* ─── Info Chips ──────────────────────────────────────────────────────────── */
+.info-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 50px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(92, 158, 173, 0.1);
+  color: var(--text-muted);
+  border: 1px solid var(--card-border-subtle);
+  transition: all 0.4s ease;
+}
+
+.dark .info-chip {
+  background: rgba(96, 108, 56, 0.1);
+}
+
+/* ─── Diagnostic Metric Tile ──────────────────────────────────────────────── */
+.metric-tile {
+  background: var(--canvas-bg);
+  border: 1px solid var(--card-border-subtle);
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: inset 1px 1px 3px var(--clay-outer-1);
+}
+
+.metric-tile .metric-title {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.metric-tile .metric-val {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-tile .metric-desc {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+/* ─── Utility ─────────────────────────────────────────────────────────────── */
+.text-muted { color: var(--text-muted); transition: color 0.4s ease; }
