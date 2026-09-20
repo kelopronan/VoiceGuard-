@@ -92,33 +92,42 @@ class AudioProcessor:
             mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
             features['mfcc_mean'] = np.nan_to_num(mfccs.mean(axis=1)).tolist()
             features['mfcc_std'] = np.nan_to_num(mfccs.std(axis=1)).tolist()
+            # True vocal tract shape variation (excluding coefficient 0 which is loudness)
+            features['vocal_tract_mfcc_std'] = float(np.mean(mfccs[1:].std(axis=1)))
 
             # --- Mel Spectrogram ---
             mel_spec = librosa.feature.melspectrogram(y=audio, sr=sr, n_mels=64)
             mel_db = librosa.power_to_db(mel_spec, ref=np.max)
             features['mel_spectrogram'] = np.nan_to_num(mel_db.mean(axis=1)).tolist()
 
-            # --- Pitch (F0) using piptrack with proper F0 extraction ---
-            pitches, magnitudes = librosa.piptrack(y=audio, sr=sr, fmin=60, fmax=500)
-            # Extract ONLY the dominant F0 per frame (not harmonics)
-            f0_per_frame = []
-            for frame_idx in range(pitches.shape[1]):
-                frame_pitches = pitches[:, frame_idx]
-                frame_mags = magnitudes[:, frame_idx]
-                # Get the pitch with highest magnitude in this frame (= F0)
-                if np.max(frame_mags) > 0:
-                    best_bin = np.argmax(frame_mags)
-                    p = frame_pitches[best_bin]
-                    if 60 < p < 500:
-                        f0_per_frame.append(p)
+            # --- Fundamental Frequency (F0) using Autocorrelation Pitch Tracking ---
+            min_lag = max(1, int(sr / 500))  # 500 Hz
+            max_lag = min(len(audio) // 2, int(sr / 65))   # 65 Hz
+            frame_len = 1024
+            hop_len = 256
+            f0_vals = []
 
-            if len(f0_per_frame) > 5:
-                f0_array = np.array(f0_per_frame)
+            for i in range(0, len(audio) - frame_len, hop_len):
+                frame = audio[i:i + frame_len]
+                # Skip silent / unvoiced background noise
+                if np.std(frame) < 0.006:
+                    continue
+                corr = np.correlate(frame, frame, mode='full')
+                corr = corr[len(frame) - 1:]
+                search_win = corr[min_lag:max_lag]
+                if len(search_win) > 0:
+                    peak_lag = min_lag + int(np.argmax(search_win))
+                    norm_peak = float(corr[peak_lag] / (corr[0] + 1e-8))
+                    if norm_peak > 0.35:
+                        freq = float(sr / peak_lag)
+                        if 65 <= freq <= 500:
+                            f0_vals.append(freq)
+
+            if len(f0_vals) >= 3:
+                f0_array = np.array(f0_vals)
                 features['pitch_mean'] = float(np.mean(f0_array))
                 features['pitch_std'] = float(np.std(f0_array))
-                # Also compute pitch range and jitter for better discrimination
-                features['pitch_range'] = float(np.ptp(f0_array))  # max - min
-                # Frame-to-frame jitter (micro-variation)
+                features['pitch_range'] = float(np.ptp(f0_array))
                 if len(f0_array) > 2:
                     diffs = np.abs(np.diff(f0_array))
                     features['pitch_jitter'] = float(np.mean(diffs) / (np.mean(f0_array) + 1e-8))

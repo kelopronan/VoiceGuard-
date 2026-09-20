@@ -171,129 +171,114 @@ class VoiceDetector:
         mfcc_std = features.get("mfcc_std", [0] * 13)
         delta_mfcc_std = features.get("delta_mfcc_std", [0] * 13)
 
-        avg_mfcc = float(np.mean(mfcc_std)) if isinstance(mfcc_std, list) and len(mfcc_std) > 0 else 0.0
+        # Exclude coefficient 0 (loudness) so only true vocal tract shape is measured
+        avg_mfcc = features.get("vocal_tract_mfcc_std")
+        if avg_mfcc is None:
+            avg_mfcc = float(np.mean(mfcc_std[1:])) if len(mfcc_std) > 1 else float(np.mean(mfcc_std))
+
         has_pitch = pitch_mean > 50
 
-        # ─── 1. Fundamental Frequency (F0) Dynamics (Goldilocks: 10 - 52 Hz) ───
+        # ─── 1. Fundamental Frequency (F0) Dynamics (Human: 5 - 38 Hz) ───
         if has_pitch:
-            if pitch_std < 4.0:
-                evidence.append(0.06)
+            if pitch_std < 2.5:
+                evidence.append((0.08, 3.0))
                 reasons.append("[ANOMALY] Mechanically locked F0 - monotone clone signature")
-            elif pitch_std < 9.0:
-                evidence.append(0.25)
+            elif pitch_std < 4.8:
+                evidence.append((0.35, 2.0))
                 reasons.append("[SUSPICIOUS] Compressed robotic pitch modulation")
-            elif 10.0 <= pitch_std <= 52.0:
-                evidence.append(0.92)
-                reasons.append("[NATURAL] Fundamental frequency within human vocal cord range (10-52 Hz)")
-            elif 52.0 < pitch_std <= 68.0:
-                evidence.append(0.55)
-                reasons.append("[NATURAL] Wide expressive pitch intonation")
+            elif 4.8 <= pitch_std <= 38.0:
+                evidence.append((0.92, 3.0))
+                reasons.append("[NATURAL] Fundamental frequency within biological human range (5-38 Hz)")
+            elif 38.0 < pitch_std <= 55.0:
+                evidence.append((0.65, 2.0))
+                reasons.append("[NATURAL] Dynamic expressive intonation contour")
             else:
-                # > 68 Hz in 3s window = neural vocoder octave dispersion / phase jumping
-                evidence.append(0.12)
-                reasons.append("[ANOMALY] Neural vocoder phase jumps & erratic octave dispersion (>68 Hz)")
+                # > 55 Hz with autocorrelation tracking = neural vocoder rapid phase sweeps
+                evidence.append((0.15, 3.0))
+                reasons.append("[ANOMALY] Neural vocoder phase sweeps & unnatural F0 dispersion (>55 Hz)")
         else:
-            evidence.append(0.50)
+            evidence.append((0.50, 1.0))
             reasons.append("[INFO] Low voiced signal for F0 tracking")
 
-        # ─── 2. MFCC Articulatory Complexity (Goldilocks: 5.0 - 18.0) ───
-        if avg_mfcc < 3.0:
-            evidence.append(0.10)
+        # ─── 2. MFCC Articulatory Complexity (Human: 4.0 - 16.5) ───
+        if avg_mfcc < 2.8:
+            evidence.append((0.12, 2.5))
             reasons.append("[ANOMALY] Over-smoothed acoustic vocal tract modeling")
-        elif avg_mfcc < 5.0:
-            evidence.append(0.35)
+        elif avg_mfcc < 4.0:
+            evidence.append((0.40, 1.5))
             reasons.append("[SUSPICIOUS] Sub-normal articulatory diversity")
-        elif 5.0 <= avg_mfcc <= 18.0:
-            evidence.append(0.92)
+        elif 4.0 <= avg_mfcc <= 16.5:
+            evidence.append((0.92, 2.5))
             reasons.append("[NATURAL] Organic vocal tract formant articulation dynamics")
-        elif 18.0 < avg_mfcc <= 21.0:
-            evidence.append(0.55)
-            reasons.append("[INFO] High articulatory acoustic variance")
+        elif 16.5 < avg_mfcc <= 20.0:
+            evidence.append((0.60, 1.5))
+            reasons.append("[INFO] Elevated articulatory acoustic variance")
         else:
-            # > 21.0 = neural synthesis spectral ripple / mel dispersion artifact
-            evidence.append(0.14)
-            reasons.append("[ANOMALY] Neural vocoder spectral ripple & synthetic mel dispersion (>21)")
+            # > 20.0 = neural synthesis spectral ripple / mel dispersion artifact
+            evidence.append((0.15, 2.5))
+            reasons.append("[ANOMALY] Neural vocoder mel dispersion artifact (>20)")
 
-        # ─── 3. Spectral Flatness / Wiener Entropy (Goldilocks: 0.005 - 0.038) ───
-        if spectral_flatness < 0.0005:
-            evidence.append(0.10)
+        # ─── 3. Spectral Flatness / Wiener Entropy (Room Mic Safe: 0.003 - 0.065) ───
+        if spectral_flatness < 0.0003:
+            evidence.append((0.10, 2.0))
             reasons.append("[ANOMALY] Mathematically pure synthetic harmonics (zero glottal turbulence)")
-        elif 0.005 <= spectral_flatness <= 0.038:
-            evidence.append(0.90)
+        elif 0.003 <= spectral_flatness <= 0.065:
+            evidence.append((0.90, 2.0))
             reasons.append("[NATURAL] Natural harmonic formant peaks with organic air turbulence")
-        elif 0.038 < spectral_flatness <= 0.052:
-            evidence.append(0.50)
-            reasons.append("[INFO] Moderate background noise / fricative energy")
+        elif 0.065 < spectral_flatness <= 0.105:
+            evidence.append((0.50, 1.5))
+            reasons.append("[INFO] Elevated background noise / room reflections")
         else:
-            # > 0.052 = neural vocoder diffusion / GAN generator phase noise
-            evidence.append(0.12)
-            reasons.append("[ANOMALY] Neural vocoder high-band phase noise signature (>0.05)")
+            # > 0.105 = neural vocoder diffusion / GAN generator phase noise
+            evidence.append((0.15, 2.0))
+            reasons.append("[ANOMALY] Severe vocoder high-band phase noise signature (>0.10)")
 
-        # ─── 4. Energy Modulation (Goldilocks: 0.18 - 0.85) ───
+        # ─── 4. Energy Modulation (Human: 0.15 - 0.95) ───
         if energy_cv < 0.06:
-            evidence.append(0.08)
+            evidence.append((0.08, 2.0))
             reasons.append("[ANOMALY] Flat unmodulated machine amplitude envelope")
-        elif energy_cv < 0.15:
-            evidence.append(0.30)
-            reasons.append("[SUSPICIOUS] Compressed syllable stress dynamics")
-        elif 0.18 <= energy_cv <= 0.85:
-            evidence.append(0.92)
+        elif energy_cv < 0.14:
+            evidence.append((0.35, 1.5))
+            reasons.append("[SUSPICIOUS] Compressed syllable dynamic range")
+        elif 0.15 <= energy_cv <= 0.95:
+            evidence.append((0.92, 2.0))
             reasons.append("[NATURAL] Organic syllable stress and respiratory breathing pauses")
         else:
-            evidence.append(0.40)
-            reasons.append("[SUSPICIOUS] Non-biological energy envelope gating")
+            evidence.append((0.50, 1.0))
+            reasons.append("[INFO] High dynamic speech bursts")
 
-        # ─── 5. Micro-Jitter / Pitch Perturbation (Goldilocks: 0.015 - 0.12) ───
-        if has_pitch:
-            if pitch_jitter < 0.005:
-                evidence.append(0.10)
-                reasons.append("[ANOMALY] Zero micro-jitter - unnaturally perfect pitch synthesis")
-            elif 0.015 <= pitch_jitter <= 0.12:
-                evidence.append(0.88)
-                reasons.append("[NATURAL] Natural laryngeal vocal cord micro-perturbations")
-            elif pitch_jitter > 0.16:
-                # Extreme jitter = vocoder phase discontinuity / octave leaping
-                evidence.append(0.15)
-                reasons.append("[ANOMALY] Severe frame-to-frame pitch discontinuity (vocoder tracking jump)")
-            else:
-                evidence.append(0.55)
-        else:
-            evidence.append(0.50)
-
-        # ─── 6. Spectral Centroid Dynamic Variance ───
-        if spectral_centroid_std < 70.0:
-            evidence.append(0.15)
+        # ─── 5. Formant Dynamic Transitions (Centroid Std: Human >= 150) ───
+        if spectral_centroid_std < 75.0:
+            evidence.append((0.18, 2.0))
             reasons.append("[ANOMALY] Stationary spectral brightness - synthetic static vocal tract")
-        elif spectral_centroid_std >= 180.0:
-            evidence.append(0.85)
+        elif spectral_centroid_std >= 150.0:
+            evidence.append((0.92, 2.0))
             reasons.append("[NATURAL] Dynamic vowel formant transitions across speech frames")
         else:
-            evidence.append(0.55)
+            evidence.append((0.65, 1.5))
+            reasons.append("[NATURAL] Moderate vowel formant dynamics")
 
-        # ─── Weights: [Pitch F0, MFCC, Flatness, Energy, Jitter, Centroid] ───
-        weights = [2.5, 2.0, 2.0, 1.5, 1.5, 1.0]
-        assert len(evidence) == len(weights)
-
-        weighted_sum = sum(e * w for e, w in zip(evidence, weights))
-        score = weighted_sum / sum(weights)
+        # ─── Weighted Score Calculation ───
+        total_w = sum(w for ev_val, w in evidence)
+        weighted_sum = sum(ev_val * w for ev_val, w in evidence)
+        score = weighted_sum / total_w
 
         # ─── Neural Deepfake Anomaly Decision Gate ───
-        # In acoustic forensics, multiple independent vocoder anomalies (e.g. high-band noise,
-        # unnatural F0 dispersion, extreme jitter) cannot occur simultaneously in human biology.
-        anomaly_count = sum(1 for r in reasons if "[ANOMALY]" in r)
-        if anomaly_count >= 3:
+        # Only severe anomalies (ev_val <= 0.18) trigger the cap
+        severe_anomalies = sum(1 for ev_val, w in evidence if ev_val <= 0.18)
+        if severe_anomalies >= 3:
             score = min(score, 0.22)
-        elif anomaly_count >= 2:
+        elif severe_anomalies == 2:
             score = min(score, 0.35)
-        elif anomaly_count == 1:
-            score = min(score, 0.58)
+        elif severe_anomalies == 1:
+            score = min(score, 0.72)
 
         score = max(0.04, min(0.97, score))
         label = self._score_to_label(score)
 
         print(f"[FORENSIC] pitch_std={pitch_std:.1f} mfcc={avg_mfcc:.1f} "
               f"flatness={spectral_flatness:.4f} jitter={pitch_jitter:.4f} "
-              f"anomalies={anomaly_count} => score={score:.3f} ({label})")
+              f"anomalies={severe_anomalies} => score={score:.3f} ({label})")
 
         return {
             "score": round(float(score), 4),
