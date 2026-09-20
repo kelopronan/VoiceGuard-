@@ -15,10 +15,11 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
+from typing import Optional
 
 from model_handler import VoiceDetector
 from audio_processor import AudioProcessor
@@ -144,7 +145,10 @@ async def health_check():
 
 
 @app.post("/api/analyze")
-async def analyze_uploaded_file(file: UploadFile = File(...)):
+async def analyze_uploaded_file(
+    file: UploadFile = File(...),
+    x_hf_api_key: Optional[str] = Header(None, alias="X-HF-API-Key"),
+):
     """Analyze an uploaded audio file (.wav, .mp3, .ogg, .flac, .webm)."""
     try:
         contents = await file.read()
@@ -163,7 +167,7 @@ async def analyze_uploaded_file(file: UploadFile = File(...)):
             )
 
         start_time = time.time()
-        result = detector.predict(audio, sr)
+        result = detector.predict(audio, sr, hf_key=x_hf_api_key)
         inference_time = time.time() - start_time
 
         result["filename"] = file.filename or "recording.webm"

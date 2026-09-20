@@ -6,7 +6,7 @@ import {
   Activity, BarChart3, Tags, Zap, Bot, Package,
   AlertTriangle, CheckCircle, XCircle, Sun, Moon,
   FileAudio, History, Clock, Wifi, WifiOff, Volume2, X, Sparkles,
-  Radio, FileText, Gauge, RefreshCw, AudioWaveform
+  Radio, FileText, Gauge, RefreshCw, AudioWaveform, Key
 } from 'lucide-react';
 import TrustGauge from '@/components/TrustGauge';
 import WaveformCanvas from '@/components/WaveformCanvas';
@@ -142,6 +142,34 @@ export default function VoiceGuardPage() {
   const [dragOver, setDragOver] = useState(false);
   const [visualMode, setVisualMode] = useState<'waveform' | 'spectrum'>('waveform');
 
+  /* ─── HuggingFace Integration State ─── */
+  const [hfKey, setHfKey] = useState('');
+  const [showHfModal, setShowHfModal] = useState(false);
+  const [hfInput, setHfInput] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('voiceguard_hf_key') || process.env.NEXT_PUBLIC_HF_API_KEY || '';
+      if (stored) {
+        setHfKey(stored);
+        setHfInput(stored);
+      }
+    }
+  }, []);
+
+  const saveHfKey = () => {
+    const trimmed = hfInput.trim();
+    setHfKey(trimmed);
+    if (typeof window !== 'undefined') {
+      if (trimmed) {
+        localStorage.setItem('voiceguard_hf_key', trimmed);
+      } else {
+        localStorage.removeItem('voiceguard_hf_key');
+      }
+    }
+    setShowHfModal(false);
+  };
+
   /* ─── Refs ─── */
   const audioCtxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -168,7 +196,10 @@ export default function VoiceGuardPage() {
     try {
       const formData = new FormData();
       formData.append('file', blob, name);
-      const res = await fetch(`${API_BASE}/analyze`, { method: 'POST', body: formData });
+      const headers: Record<string, string> = {};
+      const activeKey = hfKey || (typeof window !== 'undefined' ? localStorage.getItem('voiceguard_hf_key') : '') || process.env.NEXT_PUBLIC_HF_API_KEY || '';
+      if (activeKey) headers['X-HF-API-Key'] = activeKey;
+      const res = await fetch(`${API_BASE}/analyze`, { method: 'POST', headers, body: formData });
       const result: AnalysisResult = await res.json();
 
       if (result.error) {
@@ -312,7 +343,10 @@ export default function VoiceGuardPage() {
     try {
       const formData = new FormData();
       formData.append('file', targetFile);
-      const res = await fetch(`${API_BASE}/analyze`, { method: 'POST', body: formData });
+      const headers: Record<string, string> = {};
+      const activeKey = hfKey || (typeof window !== 'undefined' ? localStorage.getItem('voiceguard_hf_key') : '') || process.env.NEXT_PUBLIC_HF_API_KEY || '';
+      if (activeKey) headers['X-HF-API-Key'] = activeKey;
+      const res = await fetch(`${API_BASE}/analyze`, { method: 'POST', headers, body: formData });
       const result: AnalysisResult = await res.json();
 
       if (result.error) {
@@ -418,6 +452,18 @@ export default function VoiceGuardPage() {
               <span className="text-[0.68rem] sm:text-[0.72rem] font-bold">Export Audit</span>
             </button>
           )}
+
+          {/* HuggingFace Wav2Vec2 API Key Button */}
+          <button
+            onClick={() => setShowHfModal(true)}
+            className="clay-btn clay-btn-sm"
+            title="Configure HuggingFace Wav2Vec2 API Key"
+          >
+            <Key size={13} className={hfKey ? "text-[var(--verdict-human)]" : "text-[var(--clay)]"} />
+            <span className="text-[0.68rem] sm:text-[0.72rem] font-bold">
+              {hfKey ? 'HF AI Connected' : 'Set HF Key'}
+            </span>
+          </button>
 
           {/* Theme Toggle (Light <-> Dark) */}
           <button onClick={toggleDarkMode} className="theme-toggle" aria-label="Toggle theme mode" title="Switch Theme">
@@ -776,6 +822,96 @@ export default function VoiceGuardPage() {
       <footer className="text-center py-6 text-muted text-[0.72rem] font-bold">
         VoiceGuard AI &middot; IIT BHU Hackathon 2026 &middot; Real-Time AI Voice Cloning Detection System
       </footer>
+
+      {/* ─── HuggingFace API Key Modal ─── */}
+      {showHfModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div 
+            className="w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4 border"
+            style={{
+              background: 'var(--card-bg, #1a241c)',
+              borderColor: 'var(--card-border, #2d3b2f)',
+              color: 'var(--text-primary, #e6ede8)'
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Key className="text-[var(--clay)]" size={20} />
+                <h3 className="text-lg font-extrabold tracking-tight">Hugging Face API Key</h3>
+              </div>
+              <button 
+                onClick={() => setShowHfModal(false)}
+                className="p-1.5 rounded-xl hover:bg-white/10 text-muted transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-muted leading-relaxed">
+              Connect VoiceGuard AI directly to the <span className="text-[var(--clay)] font-semibold">Wav2Vec2 Foundation Model</span> (<code className="text-[11px] px-1 py-0.5 rounded bg-black/30">MelodyMachine/Deepfake-audio-detection-V2</code>) for deep neural network deepfake classification.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-muted block">Hugging Face Access Token (Read)</label>
+              <input
+                type="password"
+                value={hfInput}
+                onChange={(e) => setHfInput(e.target.value)}
+                placeholder="hf_xxxxxxxxxxxxxxxxxxxx"
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none border focus:border-[var(--clay)] transition-colors"
+                style={{
+                  background: 'rgba(0,0,0,0.25)',
+                  borderColor: 'var(--card-border, #2d3b2f)',
+                  color: 'var(--text-primary, #e6ede8)'
+                }}
+              />
+              <p className="text-[11px] text-muted">
+                Get a free token at{' '}
+                <a 
+                  href="https://huggingface.co/settings/tokens" 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="text-[var(--clay)] underline hover:opacity-80 font-bold"
+                >
+                  huggingface.co/settings/tokens
+                </a>
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              {hfKey && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHfInput('');
+                    setHfKey('');
+                    if (typeof window !== 'undefined') localStorage.removeItem('voiceguard_hf_key');
+                    setShowHfModal(false);
+                  }}
+                  className="clay-btn clay-btn-sm text-xs font-bold text-[var(--verdict-synthetic)]"
+                >
+                  Remove Key
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowHfModal(false)}
+                className="clay-btn clay-btn-sm text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveHfKey}
+                className="clay-btn clay-btn-sm clay-btn-primary text-xs font-extrabold"
+                style={{ background: 'var(--clay)', color: '#fff' }}
+              >
+                Save & Connect
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
