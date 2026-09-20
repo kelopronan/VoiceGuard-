@@ -132,6 +132,7 @@ class AudioProcessor:
             hop_len = 256
             f0_vals = []
 
+            f0_peaks = []
             for i in range(0, len(audio) - frame_len, hop_len):
                 frame = audio[i:i + frame_len]
                 # Normalized audio: voiced speech frames have std >= 0.025
@@ -147,6 +148,7 @@ class AudioProcessor:
                         freq = float(sr / peak_lag)
                         if 65 <= freq <= 480:
                             f0_vals.append(freq)
+                            f0_peaks.append(norm_peak)
 
             if len(f0_vals) >= 3:
                 f0_array = np.array(f0_vals)
@@ -157,6 +159,7 @@ class AudioProcessor:
                 features['pitch_range'] = float(np.ptp(f0_array))
                 # Scale-invariant Relative Pitch CV (%)
                 features['pitch_cv_percent'] = float((p_std / (p_mean + 1e-8)) * 100.0)
+                features['voicing_strength'] = float(np.mean(f0_peaks))
                 if len(f0_array) > 2:
                     diffs = np.abs(np.diff(f0_array))
                     features['pitch_jitter'] = float(np.mean(diffs) / (p_mean + 1e-8))
@@ -168,6 +171,7 @@ class AudioProcessor:
                 features['pitch_range'] = 0.0
                 features['pitch_cv_percent'] = 0.0
                 features['pitch_jitter'] = 0.0
+                features['voicing_strength'] = 0.0
 
             # --- Energy (RMS) with frame-level stats ---
             rms = librosa.feature.rms(y=audio)[0]
@@ -184,15 +188,22 @@ class AudioProcessor:
             spectral_bw = librosa.feature.spectral_bandwidth(y=audio, sr=sr)[0]
             features['spectral_bandwidth'] = float(np.mean(spectral_bw))
 
-            # --- Device Invariance 3: Speech Formant-Band Flatness (200Hz - 3800Hz) ---
-            # Measures true glottal resonance in human speech band, immune to laptop fan hiss or ultrasonic noise
+            # --- Formant-Band & High-Band Spectral Flatness (Wiener Entropy) ---
             S = np.abs(librosa.stft(audio, n_fft=1024, hop_length=256))
             fft_freqs = librosa.fft_frequencies(sr=sr, n_fft=1024)
+
             speech_mask = (fft_freqs >= 200) & (fft_freqs <= 3800)
             S_speech = S[speech_mask, :]
             geo_m = np.exp(np.mean(np.log(S_speech + 1e-12), axis=0))
             ari_m = np.mean(S_speech, axis=0) + 1e-12
             features['spectral_flatness'] = float(np.mean(geo_m / ari_m))
+
+            high_mask = (fft_freqs > 3800) & (fft_freqs <= 7800)
+            S_high = S[high_mask, :]
+            geo_h = np.exp(np.mean(np.log(S_high + 1e-12), axis=0))
+            ari_h = np.mean(S_high, axis=0) + 1e-12
+            features['high_band_flatness'] = float(np.mean(geo_h / ari_h))
+            features['flatness_ratio'] = float(features['high_band_flatness'] / (features['spectral_flatness'] + 1e-6))
 
             # --- Zero Crossing Rate ---
             zcr = librosa.feature.zero_crossing_rate(audio)[0]
@@ -202,12 +213,19 @@ class AudioProcessor:
             rolloff = librosa.feature.spectral_rolloff(y=audio, sr=sr)[0]
             features['spectral_rolloff'] = float(np.mean(rolloff))
 
-            # --- Delta MFCC (temporal dynamics) ---
+            # --- Delta & Delta-Delta MFCC (Articulatory Velocity & Acceleration) ---
             try:
                 delta_mfcc = librosa.feature.delta(mfccs)
                 features['delta_mfcc_std'] = np.nan_to_num(delta_mfcc.std(axis=1)).tolist()
+                features['delta_mfcc_avg'] = float(np.mean(delta_mfcc[1:].std(axis=1)))
+                delta2_mfcc = librosa.feature.delta(mfccs, order=2)
+                features['delta2_mfcc_std'] = np.nan_to_num(delta2_mfcc.std(axis=1)).tolist()
+                features['delta2_mfcc_avg'] = float(np.mean(delta2_mfcc[1:].std(axis=1)))
             except Exception:
                 features['delta_mfcc_std'] = [0.0] * 13
+                features['delta_mfcc_avg'] = 0.0
+                features['delta2_mfcc_std'] = [0.0] * 13
+                features['delta2_mfcc_avg'] = 0.0
 
         except Exception as e:
             print(f"Feature extraction error: {e}")

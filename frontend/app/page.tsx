@@ -49,20 +49,6 @@ if (rawBackend && !rawBackend.startsWith('http://') && !rawBackend.startsWith('h
 }
 const BACKEND_URL = rawBackend.replace(/\/+$/, '');
 const API_BASE = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
-const WS_URL = BACKEND_URL
-  ? `${BACKEND_URL.replace(/^http/, 'ws')}/ws/stream`
-  : 'ws://localhost:8000/ws/stream';
-
-
-/* ─── Audio Helpers ───────────────────────────────────────────────────────── */
-function float32ToBase64(float32Array: Float32Array): string {
-  const bytes = new Uint8Array(float32Array.buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
 
 function downsample(buffer: Float32Array, fromRate: number, toRate: number): Float32Array {
   if (fromRate === toRate) return buffer;
@@ -157,16 +143,11 @@ export default function VoiceGuardPage() {
   const [visualMode, setVisualMode] = useState<'waveform' | 'spectrum'>('waveform');
 
   /* ─── Refs ─── */
-  const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const mediaRecRef = useRef<MediaRecorder | null>(null);
-  const recChunksRef = useRef<Blob[]>([]);
-  const pcmChunksRef = useRef<Float32Array[]>([]);
   const allPcmChunksRef = useRef<Float32Array[]>([]);
-  const sendIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const blobUrlRef = useRef<string | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
@@ -238,62 +219,12 @@ export default function VoiceGuardPage() {
       processor.connect(audioCtx.destination);
       processorRef.current = processor;
 
-      pcmChunksRef.current = [];
       allPcmChunksRef.current = [];
 
       processor.onaudioprocess = (e) => {
         const data = e.inputBuffer.getChannelData(0);
-        const copy = new Float32Array(data);
-        pcmChunksRef.current.push(copy);
-        allPcmChunksRef.current.push(copy);
+        allPcmChunksRef.current.push(new Float32Array(data));
       };
-
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
-      const mediaRec = new MediaRecorder(stream, { mimeType });
-      recChunksRef.current = [];
-      mediaRec.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) recChunksRef.current.push(e.data);
-      };
-      mediaRec.start(250);
-      mediaRecRef.current = mediaRec;
-
-      try {
-        const ws = new WebSocket(WS_URL);
-        wsRef.current = ws;
-
-        ws.onmessage = (event) => {
-          try {
-            const result: AnalysisResult = JSON.parse(event.data);
-            if (typeof result.score === 'number') {
-              setTrustScore(result.score);
-              setLabel(result.label);
-              setReasons(result.reasons || []);
-              setFeatures(result.features || {});
-              setInferenceMs(result.inference_ms || 0);
-              setBufferSec(result.buffer_seconds || 0);
-              setModelName(result.model || 'heuristic-v2');
-            }
-          } catch { /* ignore */ }
-        };
-
-        ws.onopen = () => {
-          sendIntervalRef.current = setInterval(() => {
-            if (pcmChunksRef.current.length === 0 || ws.readyState !== WebSocket.OPEN) return;
-            const totalLen = pcmChunksRef.current.reduce((s, a) => s + a.length, 0);
-            const combined = new Float32Array(totalLen);
-            let off = 0;
-            for (const c of pcmChunksRef.current) { combined.set(c, off); off += c.length; }
-            pcmChunksRef.current = [];
-            const resampled = downsample(combined, audioCtx.sampleRate, 16000);
-            const b64 = float32ToBase64(resampled);
-            ws.send(JSON.stringify({ type: 'audio_chunk', data: b64 }));
-          }, 500);
-        };
-      } catch (wsErr) {
-        console.warn('WebSocket live stream:', wsErr);
-      }
 
       setRecordingTime(0);
       timerRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000);
@@ -302,8 +233,8 @@ export default function VoiceGuardPage() {
       setHasRecording(false);
       setRecordedBlob(null);
       setTrustScore(null);
-      setLabel('LISTENING');
-      setReasons([]);
+      setLabel('RECORDING');
+      setReasons(['Listening... Speak naturally. Click Stop when finished to generate forensic verdict.']);
     } catch (err) {
       console.error('Mic error:', err);
       alert('Microphone access blocked. Please enable microphone permissions in your browser.');
@@ -311,14 +242,7 @@ export default function VoiceGuardPage() {
   }, []);
 
   const stopRecording = useCallback(() => {
-    if (sendIntervalRef.current) { clearInterval(sendIntervalRef.current); sendIntervalRef.current = null; }
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-
-    if (wsRef.current) {
-      try { wsRef.current.send(JSON.stringify({ type: 'stop' })); } catch { /* */ }
-      wsRef.current.close();
-      wsRef.current = null;
-    }
 
     const currentSampleRate = audioCtxRef.current?.sampleRate || 16000;
 
@@ -335,19 +259,20 @@ export default function VoiceGuardPage() {
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
       blobUrlRef.current = URL.createObjectURL(wavBlob);
       setHasRecording(true);
-      // Automatic forensic analysis on complete lossless WAV
+
+      // Transition immediately to analyzing state
+      setLabel('ANALYZING');
+      setReasons(['Analyzing complete audio sample across 6-pillar forensic acoustic battery...']);
+
+      // Execute authoritative forensic analysis on complete lossless WAV
       analyzeBlob(wavBlob, 'mic_capture.wav');
     }
 
     if (processorRef.current) { processorRef.current.disconnect(); processorRef.current = null; }
     if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
     if (audioCtxRef.current) { audioCtxRef.current.close(); audioCtxRef.current = null; }
-    if (mediaRecRef.current && mediaRecRef.current.state !== 'inactive') {
-      try { mediaRecRef.current.stop(); } catch { /* */ }
-    }
 
     setAnalyserNode(null);
-    pcmChunksRef.current = [];
     allPcmChunksRef.current = [];
     setIsRecording(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
