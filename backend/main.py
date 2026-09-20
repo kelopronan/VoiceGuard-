@@ -13,6 +13,11 @@ import io
 import os
 import tempfile
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from backend/.env or root .env
+load_dotenv()
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Header, Request
@@ -41,7 +46,8 @@ app.add_middleware(
 )
 
 print("[*] VoiceGuard AI - Initializing...")
-detector = VoiceDetector(hf_api_key=None)
+hf_token = os.getenv("HUGGINGFACE_API_KEY") or os.getenv("HF_TOKEN") or os.getenv("HF_API_KEY")
+detector = VoiceDetector(hf_api_key=hf_token)
 processor = AudioProcessor(sr=16000)
 print("[+] VoiceGuard AI server ready!")
 

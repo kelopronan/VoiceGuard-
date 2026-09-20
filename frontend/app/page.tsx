@@ -146,6 +146,7 @@ export default function VoiceGuardPage() {
   const [hfKey, setHfKey] = useState('');
   const [showHfModal, setShowHfModal] = useState(false);
   const [hfInput, setHfInput] = useState('');
+  const [showTerms, setShowTerms] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -818,9 +819,78 @@ export default function VoiceGuardPage() {
         )}
       </div>
 
-      {/* ─── Footer ─── */}
-      <footer className="text-center py-6 text-muted text-[0.72rem] font-bold">
-        VoiceGuard AI &middot; IIT BHU Hackathon 2026 &middot; Real-Time AI Voice Cloning Detection System
+      {/* ─── Professional Footer ─── */}
+      <footer className="mt-8 pt-6 border-t" style={{ borderColor: 'var(--card-border-subtle)' }}>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+          <div className="space-y-1">
+            <div className="flex items-center justify-center sm:justify-start gap-2">
+              <Shield size={14} className="text-[var(--clay)]" />
+              <span className="text-[0.78rem] font-extrabold text-[var(--text-primary)] tracking-tight">
+                VoiceGuard <span className="text-[var(--clay)]">AI</span>
+              </span>
+              <span className="text-[0.6rem] font-bold px-2 py-0.5 rounded-full" style={{
+                background: 'var(--olive-bg)', color: 'var(--olive)', border: '1px solid var(--card-border-subtle)'
+              }}>v2.0</span>
+            </div>
+            <p className="text-[0.68rem] text-muted font-semibold">
+              Built by <span className="text-[var(--text-secondary)] font-extrabold">Ronan S Atomos</span>
+              <span className="mx-1.5 opacity-40">•</span>
+              IIT BHU Hackathon 2026
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 text-[0.66rem] font-bold text-muted">
+            <button
+              onClick={() => setShowTerms(!showTerms)}
+              className="hover:text-[var(--text-secondary)] transition-colors underline underline-offset-2 decoration-dotted"
+            >
+              Terms & Conditions
+            </button>
+            <span className="opacity-30">•</span>
+            <span>Acoustic Forensics Engine</span>
+          </div>
+        </div>
+
+        {/* ─── Terms & Conditions Expandable ─── */}
+        {showTerms && (
+          <div
+            className="mt-4 p-4 rounded-2xl text-[0.72rem] leading-relaxed space-y-2 font-medium"
+            style={{
+              background: 'var(--canvas-bg)',
+              border: '1px solid var(--card-border-subtle)',
+              color: 'var(--text-muted)',
+            }}
+          >
+            <h4 className="text-[0.78rem] font-extrabold text-[var(--text-primary)] tracking-tight mb-2">
+              Terms & Conditions
+            </h4>
+            <p>
+              <strong>1. Purpose.</strong> VoiceGuard AI is an acoustic forensics research tool designed for educational and demonstration purposes as part of IIT BHU Hackathon 2026. It is not intended as a definitive legal or forensic instrument.
+            </p>
+            <p>
+              <strong>2. No Guarantee of Accuracy.</strong> While VoiceGuard AI employs advanced signal processing, machine learning classifiers, and optional deep neural network (Wav2Vec2) inference to distinguish human speech from synthetic audio, no detection system is 100% accurate. Results should be interpreted as probabilistic assessments, not absolute determinations.
+            </p>
+            <p>
+              <strong>3. Data Privacy.</strong> Audio recordings submitted for analysis are processed transiently and are not stored, logged, or transmitted to any third party beyond the optional HuggingFace Inference API (when a user-provided API key is configured). No personally identifiable voice biometrics are retained.
+            </p>
+            <p>
+              <strong>4. Limitation of Liability.</strong> The developer (Ronan S Atomos) and contributors shall not be held liable for any decisions, actions, or consequences arising from the use of this tool or its outputs.
+            </p>
+            <p>
+              <strong>5. Open Source.</strong> This project is provided as-is for educational and research use. Unauthorized commercial redistribution is prohibited without explicit permission.
+            </p>
+            <button
+              onClick={() => setShowTerms(false)}
+              className="mt-2 text-[var(--clay)] font-bold hover:opacity-80 transition-opacity text-xs"
+            >
+              Close ✕
+            </button>
+          </div>
+        )}
+
+        <p className="text-center text-[0.62rem] text-muted mt-4 pb-2 font-semibold opacity-60">
+          © {new Date().getFullYear()} Ronan S Atomos. All rights reserved.
+        </p>
       </footer>
 
       {/* ─── HuggingFace API Key Modal ─── */}

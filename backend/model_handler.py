@@ -269,35 +269,45 @@ class VoiceDetector:
             evidence.append((0.75, 1.5))
             reasons.append("[NATURAL] Typical vocal cord micro-perturbation")
 
-        # ─── 3. Vocal Tract Articulation & Formant Dynamics (MFCC) ───
+        # ─── 3. Vocal Tract Articulation & Mel Ripple (Human: 3.5 - 15.0) ───
         if avg_mfcc < 2.5:
-            evidence.append((0.15, 2.0))
+            evidence.append((0.15, 2.5))
             reasons.append("[ANOMALY] Over-smoothed synthetic vocal tract modeling")
-        elif 3.8 <= avg_mfcc <= 18.0:
-            evidence.append((0.92, 2.5))
+        elif avg_mfcc > 18.0:
+            evidence.append((0.08, 4.0))
+            reasons.append(f"[ANOMALY] Neural vocoder Mel-spectrogram inversion ripple (MFCC std: {avg_mfcc:.1f} > 18.0)")
+        elif 3.5 <= avg_mfcc <= 15.0:
+            evidence.append((0.94, 3.0))
             reasons.append("[NATURAL] Biological vocal tract formant articulation dynamics")
-        elif avg_mfcc > 24.0:
-            evidence.append((0.30, 1.5))
-            reasons.append("[SUSPICIOUS] Elevated Mel filterbank ripple variance")
         else:
-            evidence.append((0.75, 1.5))
+            evidence.append((0.70, 1.5))
             reasons.append("[NATURAL] Normal formant articulation")
 
-        # ─── 4. Phase Noise vs. Organic Consonants / Room Acoustics ───
-        # Real speech has consonants ('s', 'sh', 'f') which create natural noise.
-        # Only penalize spectral flatness if pitch is ALSO monotone or jitter is near zero.
-        is_monotone = (pitch_cv < 4.0 or pitch_jitter < 0.004)
-        if spectral_flatness > 0.22 and is_monotone:
-            evidence.append((0.15, 2.5))
-            reasons.append("[ANOMALY] High-band neural vocoder diffusion phase noise")
-        elif spectral_flatness <= 0.18:
-            evidence.append((0.90, 2.0))
+        # ─── 4. Spectral Flatness & Phase Diffusion Noise ───
+        # In neural vocoders (HiFi-GAN, WaveGlow, Diffusion), phase dispersion creates flatness > 0.30 across speech frames.
+        if spectral_flatness > 0.30:
+            evidence.append((0.08, 4.0))
+            reasons.append(f"[ANOMALY] Neural vocoder phase dispersion noise (flatness: {spectral_flatness:.3f} > 0.30)")
+        elif spectral_flatness > 0.25:
+            evidence.append((0.25, 2.0))
+            reasons.append(f"[SUSPICIOUS] Elevated high-frequency acoustic diffusion ({spectral_flatness:.3f})")
+        elif spectral_flatness <= 0.22:
+            evidence.append((0.93, 2.5))
             reasons.append("[NATURAL] Harmonic resonance clarity consistent with physical vocal tract")
         else:
-            evidence.append((0.80, 1.0))
+            evidence.append((0.75, 1.0))
             reasons.append("[INFO] Ambient microphone acoustics and organic consonant dynamics")
 
-        # ─── 5. Energy Modulation (Syllable Cadence & AGC Tolerance) ───
+        # ─── 5. Formant Velocity & Acceleration (Delta MFCC) ───
+        delta_mfcc_avg = features.get("delta_mfcc_avg", 1.5)
+        if delta_mfcc_avg > 3.4:
+            evidence.append((0.10, 3.0))
+            reasons.append(f"[ANOMALY] Synthetic phonemic transition velocity (Delta MFCC: {delta_mfcc_avg:.2f} > 3.4)")
+        elif 0.8 <= delta_mfcc_avg <= 2.8:
+            evidence.append((0.92, 2.0))
+            reasons.append("[NATURAL] Human articulatory muscle inertia dynamics")
+
+        # ─── 6. Energy Modulation (Syllable Cadence & AGC Tolerance) ───
         if energy_cv < 0.03:
             evidence.append((0.30, 1.0))
             reasons.append("[INFO] Highly compressed or AGC-normalized microphone volume")
@@ -315,13 +325,16 @@ class VoiceDetector:
 
         # Gate on critical anomalies
         severe_anomalies = sum(1 for ev_val, w in evidence if ev_val <= 0.20)
-        if pitch_cv < 2.5:
-            # Monotone locked frequency contour is an unambiguous machine synthesis signature
-            score = min(score, 0.20)
+        is_neural_vocoder = (avg_mfcc > 18.0 and spectral_flatness > 0.27)
+        is_monotone_clone = (pitch_cv < 2.5 or pitch_jitter < 0.0035)
+
+        if is_neural_vocoder or is_monotone_clone:
+            # Definitive synthetic signature: neural vocoder or locked pitch
+            score = min(score, 0.15)
         elif severe_anomalies >= 2:
             score = min(score, 0.25)
         elif severe_anomalies == 1:
-            score = min(score, 0.68)
+            score = min(score, 0.65)
 
         score = max(0.04, min(0.97, score))
         label = self._score_to_label(score)

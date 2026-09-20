@@ -215,7 +215,7 @@ body {
   padding: 9px 20px;
   border: 1px solid var(--card-border);
   border-radius: 50px;
-  font-family: 'Nunito', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 0.84rem;
   font-weight: 700;
   cursor: pointer;
