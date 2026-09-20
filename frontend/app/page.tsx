@@ -43,11 +43,16 @@ interface HistoryEntry extends AnalysisResult {
 }
 
 /* ─── Constants ───────────────────────────────────────────────────────────── */
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+let rawBackend = (process.env.NEXT_PUBLIC_BACKEND_URL || '').trim();
+if (rawBackend && !rawBackend.startsWith('http://') && !rawBackend.startsWith('https://')) {
+  rawBackend = `https://${rawBackend}`;
+}
+const BACKEND_URL = rawBackend.replace(/\/+$/, '');
 const API_BASE = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
 const WS_URL = BACKEND_URL
   ? `${BACKEND_URL.replace(/^http/, 'ws')}/ws/stream`
   : 'ws://localhost:8000/ws/stream';
+
 
 /* ─── Audio Helpers ───────────────────────────────────────────────────────── */
 function float32ToBase64(float32Array: Float32Array): string {
