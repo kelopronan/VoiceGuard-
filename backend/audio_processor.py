@@ -82,8 +82,33 @@ class AudioProcessor:
 
         # Ensure float32 and finite
         audio = np.nan_to_num(audio.astype(np.float32))
-        if np.max(np.abs(audio)) < 1e-6:
+
+        # ─── Device Invariance 1: Sub-bass Rumble & Mains Hum Filter (70 Hz) ───
+        # Eliminates 50/60 Hz electrical mains hum, laptop fan vibration, and DC bias
+        audio = audio - float(np.mean(audio))
+        try:
+            from scipy import signal
+            b, a = signal.butter(4, 70.0, btype='highpass', fs=sr)
+            audio = signal.filtfilt(b, a, audio).astype(np.float32)
+        except Exception:
+            pass
+
+        # ─── Device Invariance 2: Dynamic Peak AGC Normalization ───
+        # Standardizes input level to -1dBFS so quiet budget mics and loud studio mics produce identical scale
+        peak = float(np.max(np.abs(audio)))
+        if peak > 1e-4:
+            audio = (audio / peak * 0.90).astype(np.float32)
+        else:
             return None
+
+        # ─── Device Invariance 3: Voice Activity Silence Trimming ───
+        # Removes leading/trailing room silence so speech pauses do not distort vocal tract metrics
+        try:
+            trimmed, _ = librosa.effects.trim(audio, top_db=26)
+            if len(trimmed) >= int(sr * 0.3):
+                audio = trimmed
+        except Exception:
+            pass
 
         features = {}
 
@@ -92,7 +117,7 @@ class AudioProcessor:
             mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
             features['mfcc_mean'] = np.nan_to_num(mfccs.mean(axis=1)).tolist()
             features['mfcc_std'] = np.nan_to_num(mfccs.std(axis=1)).tolist()
-            # True vocal tract shape variation (excluding coefficient 0 which is loudness)
+            # Pure vocal tract shape variation (excluding coefficient 0 which is gain/loudness)
             features['vocal_tract_mfcc_std'] = float(np.mean(mfccs[1:].std(axis=1)))
 
             # --- Mel Spectrogram ---
@@ -101,16 +126,16 @@ class AudioProcessor:
             features['mel_spectrogram'] = np.nan_to_num(mel_db.mean(axis=1)).tolist()
 
             # --- Fundamental Frequency (F0) using Autocorrelation Pitch Tracking ---
-            min_lag = max(1, int(sr / 500))  # 500 Hz
-            max_lag = min(len(audio) // 2, int(sr / 65))   # 65 Hz
+            min_lag = max(1, int(sr / 480))  # 480 Hz (supports high female/child voices)
+            max_lag = min(len(audio) // 2, int(sr / 65))   # 65 Hz (supports low male voices)
             frame_len = 1024
             hop_len = 256
             f0_vals = []
 
             for i in range(0, len(audio) - frame_len, hop_len):
                 frame = audio[i:i + frame_len]
-                # Skip silent / unvoiced background noise
-                if np.std(frame) < 0.006:
+                # Normalized audio: voiced speech frames have std >= 0.025
+                if np.std(frame) < 0.025:
                     continue
                 corr = np.correlate(frame, frame, mode='full')
                 corr = corr[len(frame) - 1:]
@@ -118,32 +143,36 @@ class AudioProcessor:
                 if len(search_win) > 0:
                     peak_lag = min_lag + int(np.argmax(search_win))
                     norm_peak = float(corr[peak_lag] / (corr[0] + 1e-8))
-                    if norm_peak > 0.35:
+                    if norm_peak > 0.30:
                         freq = float(sr / peak_lag)
-                        if 65 <= freq <= 500:
+                        if 65 <= freq <= 480:
                             f0_vals.append(freq)
 
             if len(f0_vals) >= 3:
                 f0_array = np.array(f0_vals)
-                features['pitch_mean'] = float(np.mean(f0_array))
-                features['pitch_std'] = float(np.std(f0_array))
+                p_mean = float(np.mean(f0_array))
+                p_std = float(np.std(f0_array))
+                features['pitch_mean'] = p_mean
+                features['pitch_std'] = p_std
                 features['pitch_range'] = float(np.ptp(f0_array))
+                # Scale-invariant Relative Pitch CV (%)
+                features['pitch_cv_percent'] = float((p_std / (p_mean + 1e-8)) * 100.0)
                 if len(f0_array) > 2:
                     diffs = np.abs(np.diff(f0_array))
-                    features['pitch_jitter'] = float(np.mean(diffs) / (np.mean(f0_array) + 1e-8))
+                    features['pitch_jitter'] = float(np.mean(diffs) / (p_mean + 1e-8))
                 else:
                     features['pitch_jitter'] = 0.0
             else:
                 features['pitch_mean'] = 0.0
                 features['pitch_std'] = 0.0
                 features['pitch_range'] = 0.0
+                features['pitch_cv_percent'] = 0.0
                 features['pitch_jitter'] = 0.0
 
             # --- Energy (RMS) with frame-level stats ---
             rms = librosa.feature.rms(y=audio)[0]
             features['energy_rms'] = float(np.mean(rms))
             features['energy_std'] = float(np.std(rms))
-            # Coefficient of variation of energy (normalized dynamics)
             features['energy_cv'] = float(np.std(rms) / (np.mean(rms) + 1e-8))
 
             # --- Spectral Centroid ---
@@ -155,9 +184,15 @@ class AudioProcessor:
             spectral_bw = librosa.feature.spectral_bandwidth(y=audio, sr=sr)[0]
             features['spectral_bandwidth'] = float(np.mean(spectral_bw))
 
-            # --- Spectral Flatness ---
-            spectral_flat = librosa.feature.spectral_flatness(y=audio)[0]
-            features['spectral_flatness'] = float(np.mean(spectral_flat))
+            # --- Device Invariance 3: Speech Formant-Band Flatness (200Hz - 3800Hz) ---
+            # Measures true glottal resonance in human speech band, immune to laptop fan hiss or ultrasonic noise
+            S = np.abs(librosa.stft(audio, n_fft=1024, hop_length=256))
+            fft_freqs = librosa.fft_frequencies(sr=sr, n_fft=1024)
+            speech_mask = (fft_freqs >= 200) & (fft_freqs <= 3800)
+            S_speech = S[speech_mask, :]
+            geo_m = np.exp(np.mean(np.log(S_speech + 1e-12), axis=0))
+            ari_m = np.mean(S_speech, axis=0) + 1e-12
+            features['spectral_flatness'] = float(np.mean(geo_m / ari_m))
 
             # --- Zero Crossing Rate ---
             zcr = librosa.feature.zero_crossing_rate(audio)[0]

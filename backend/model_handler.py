@@ -164,6 +164,7 @@ class VoiceDetector:
 
         pitch_std = features.get("pitch_std", 0.0)
         pitch_mean = features.get("pitch_mean", 0.0)
+        pitch_cv = features.get("pitch_cv_percent", 0.0)
         pitch_jitter = features.get("pitch_jitter", 0.0)
         energy_cv = features.get("energy_cv", 0.0)
         spectral_flatness = features.get("spectral_flatness", 0.0)
@@ -177,25 +178,28 @@ class VoiceDetector:
             avg_mfcc = float(np.mean(mfcc_std[1:])) if len(mfcc_std) > 1 else float(np.mean(mfcc_std))
 
         has_pitch = pitch_mean > 50
+        if pitch_cv == 0.0 and has_pitch:
+            pitch_cv = float((pitch_std / pitch_mean) * 100.0)
 
-        # ─── 1. Fundamental Frequency (F0) Dynamics (Human: 5 - 38 Hz) ───
+        # ─── 1. Fundamental Frequency (F0) Dynamics (Scale-Invariant Pitch CV) ───
+        # Human conversational prosody is 5.0% - 36.0% CV across male, female, and child speakers
         if has_pitch:
-            if pitch_std < 2.5:
+            if pitch_cv < 3.0 or pitch_std < 2.5:
                 evidence.append((0.08, 3.0))
-                reasons.append("[ANOMALY] Mechanically locked F0 - monotone clone signature")
-            elif pitch_std < 4.8:
+                reasons.append("[ANOMALY] Mechanically locked F0 (<3% CV) - monotone clone signature")
+            elif pitch_cv < 5.0 or pitch_std < 4.2:
                 evidence.append((0.35, 2.0))
                 reasons.append("[SUSPICIOUS] Compressed robotic pitch modulation")
-            elif 4.8 <= pitch_std <= 38.0:
-                evidence.append((0.92, 3.0))
-                reasons.append("[NATURAL] Fundamental frequency within biological human range (5-38 Hz)")
-            elif 38.0 < pitch_std <= 55.0:
-                evidence.append((0.65, 2.0))
+            elif 5.0 <= pitch_cv <= 36.0 or (4.5 <= pitch_std <= 42.0):
+                evidence.append((0.93, 3.0))
+                reasons.append("[NATURAL] Fundamental frequency within biological human range (5-36% CV)")
+            elif 36.0 < pitch_cv <= 48.0 or (42.0 < pitch_std <= 62.0):
+                evidence.append((0.75, 2.0))
                 reasons.append("[NATURAL] Dynamic expressive intonation contour")
             else:
-                # > 55 Hz with autocorrelation tracking = neural vocoder rapid phase sweeps
+                # Vocoder phase sweeps & octave jumping
                 evidence.append((0.15, 3.0))
-                reasons.append("[ANOMALY] Neural vocoder phase sweeps & unnatural F0 dispersion (>55 Hz)")
+                reasons.append("[ANOMALY] Neural vocoder phase sweeps & unnatural F0 dispersion (>48% CV)")
         else:
             evidence.append((0.50, 1.0))
             reasons.append("[INFO] Low voiced signal for F0 tracking")
@@ -208,7 +212,7 @@ class VoiceDetector:
             evidence.append((0.40, 1.5))
             reasons.append("[SUSPICIOUS] Sub-normal articulatory diversity")
         elif 4.0 <= avg_mfcc <= 16.5:
-            evidence.append((0.92, 2.5))
+            evidence.append((0.93, 2.5))
             reasons.append("[NATURAL] Organic vocal tract formant articulation dynamics")
         elif 16.5 < avg_mfcc <= 20.0:
             evidence.append((0.60, 1.5))
@@ -218,45 +222,60 @@ class VoiceDetector:
             evidence.append((0.15, 2.5))
             reasons.append("[ANOMALY] Neural vocoder mel dispersion artifact (>20)")
 
-        # ─── 3. Spectral Flatness / Wiener Entropy (Room Mic Safe: 0.003 - 0.065) ───
+        # ─── 3. Spectral Flatness / Wiener Entropy (Speech Formant-Band: 0.003 - 0.065) ───
         if spectral_flatness < 0.0003:
             evidence.append((0.10, 2.0))
             reasons.append("[ANOMALY] Mathematically pure synthetic harmonics (zero glottal turbulence)")
         elif 0.003 <= spectral_flatness <= 0.065:
-            evidence.append((0.90, 2.0))
+            evidence.append((0.92, 2.0))
             reasons.append("[NATURAL] Natural harmonic formant peaks with organic air turbulence")
         elif 0.065 < spectral_flatness <= 0.105:
-            evidence.append((0.50, 1.5))
-            reasons.append("[INFO] Elevated background noise / room reflections")
+            evidence.append((0.58, 1.5))
+            reasons.append("[INFO] Elevated background noise / room acoustics")
         else:
             # > 0.105 = neural vocoder diffusion / GAN generator phase noise
             evidence.append((0.15, 2.0))
             reasons.append("[ANOMALY] Severe vocoder high-band phase noise signature (>0.10)")
 
-        # ─── 4. Energy Modulation (Human: 0.15 - 0.95) ───
+        # ─── 4. Energy Modulation (Human: 0.14 - 0.95) ───
         if energy_cv < 0.06:
             evidence.append((0.08, 2.0))
             reasons.append("[ANOMALY] Flat unmodulated machine amplitude envelope")
         elif energy_cv < 0.14:
             evidence.append((0.35, 1.5))
             reasons.append("[SUSPICIOUS] Compressed syllable dynamic range")
-        elif 0.15 <= energy_cv <= 0.95:
+        elif 0.14 <= energy_cv <= 0.95:
             evidence.append((0.92, 2.0))
             reasons.append("[NATURAL] Organic syllable stress and respiratory breathing pauses")
         else:
-            evidence.append((0.50, 1.0))
+            evidence.append((0.60, 1.0))
             reasons.append("[INFO] High dynamic speech bursts")
 
-        # ─── 5. Formant Dynamic Transitions (Centroid Std: Human >= 150) ───
+        # ─── 5. Formant Dynamic Transitions (Centroid Std: Human >= 140) ───
         if spectral_centroid_std < 75.0:
             evidence.append((0.18, 2.0))
             reasons.append("[ANOMALY] Stationary spectral brightness - synthetic static vocal tract")
-        elif spectral_centroid_std >= 150.0:
+        elif spectral_centroid_std >= 140.0:
             evidence.append((0.92, 2.0))
             reasons.append("[NATURAL] Dynamic vowel formant transitions across speech frames")
         else:
-            evidence.append((0.65, 1.5))
+            evidence.append((0.68, 1.5))
             reasons.append("[NATURAL] Moderate vowel formant dynamics")
+
+        # ─── 6. Vocal Fold Tissue Micro-Perturbation (Jitter: Human 0.008 - 0.13) ───
+        if has_pitch:
+            if pitch_jitter < 0.005:
+                evidence.append((0.15, 2.0))
+                reasons.append("[ANOMALY] Unnatural mathematical pitch precision (zero tissue micro-tremor)")
+            elif 0.008 <= pitch_jitter <= 0.130:
+                evidence.append((0.92, 2.0))
+                reasons.append("[NATURAL] Organic vocal fold mucosal wave micro-perturbation")
+            elif pitch_jitter > 0.180:
+                evidence.append((0.18, 2.0))
+                reasons.append("[ANOMALY] Neural vocoder frame-to-frame pitch discontinuity (>0.18)")
+            else:
+                evidence.append((0.65, 1.5))
+                reasons.append("[NATURAL] Moderate vocal fold stability")
 
         # ─── Weighted Score Calculation ───
         total_w = sum(w for ev_val, w in evidence)
@@ -264,19 +283,19 @@ class VoiceDetector:
         score = weighted_sum / total_w
 
         # ─── Neural Deepfake Anomaly Decision Gate ───
-        # Only severe anomalies (ev_val <= 0.18) trigger the cap
-        severe_anomalies = sum(1 for ev_val, w in evidence if ev_val <= 0.18)
+        # Severe anomalies (ev_val <= 0.20) indicate physical impossibilities in human speech
+        severe_anomalies = sum(1 for ev_val, w in evidence if ev_val <= 0.20)
         if severe_anomalies >= 3:
-            score = min(score, 0.22)
+            score = min(score, 0.20)
         elif severe_anomalies == 2:
             score = min(score, 0.35)
         elif severe_anomalies == 1:
-            score = min(score, 0.72)
+            score = min(score, 0.74)
 
         score = max(0.04, min(0.97, score))
         label = self._score_to_label(score)
 
-        print(f"[FORENSIC] pitch_std={pitch_std:.1f} mfcc={avg_mfcc:.1f} "
+        print(f"[FORENSIC] pitch_cv={pitch_cv:.1f}% pitch_std={pitch_std:.1f} mfcc={avg_mfcc:.1f} "
               f"flatness={spectral_flatness:.4f} jitter={pitch_jitter:.4f} "
               f"anomalies={severe_anomalies} => score={score:.3f} ({label})")
 

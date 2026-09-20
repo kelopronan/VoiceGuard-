@@ -76,60 +76,6 @@ function formatTime(seconds: number): string {
   return `${m}:${s}`;
 }
 
-/** Synthesize test WAV samples for instant 1-click evaluation */
-async function generateSyntheticTestAudio(type: 'human' | 'clone'): Promise<Blob> {
-  const sampleRate = 16000;
-  const duration = 2.5;
-  const length = sampleRate * duration;
-  const offlineCtx = new OfflineAudioContext(1, length, sampleRate);
-
-  const osc1 = offlineCtx.createOscillator();
-  const osc2 = offlineCtx.createOscillator();
-  const gainNode = offlineCtx.createGain();
-
-  if (type === 'human') {
-    // Natural human vocal dynamics: F0 variation, harmonic formants
-    osc1.type = 'sawtooth';
-    osc1.frequency.setValueAtTime(130, 0);
-    osc1.frequency.linearRampToValueAtTime(180, 0.7);
-    osc1.frequency.linearRampToValueAtTime(120, 1.4);
-    osc1.frequency.linearRampToValueAtTime(165, 2.1);
-
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(260, 0);
-    osc2.frequency.linearRampToValueAtTime(360, 0.7);
-
-    gainNode.gain.setValueAtTime(0.08, 0);
-    gainNode.gain.linearRampToValueAtTime(0.24, 0.4);
-    gainNode.gain.linearRampToValueAtTime(0.12, 1.1);
-    gainNode.gain.linearRampToValueAtTime(0.20, 1.8);
-    gainNode.gain.linearRampToValueAtTime(0.0, 2.5);
-  } else {
-    // Cloned deepfake: locked single frequency with zero vibrato, constant machine volume
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(160, 0);
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(320, 0);
-
-    gainNode.gain.setValueAtTime(0.12, 0);
-    gainNode.gain.setValueAtTime(0.12, duration);
-  }
-
-  osc1.connect(gainNode);
-  osc2.connect(gainNode);
-  gainNode.connect(offlineCtx.destination);
-
-  osc1.start(0);
-  osc2.start(0);
-  osc1.stop(duration);
-  osc2.stop(duration);
-
-  const renderedBuffer = await offlineCtx.startRendering();
-  const channelData = renderedBuffer.getChannelData(0);
-
-  const wavBytes = encodeWAV(channelData, sampleRate);
-  return new Blob([wavBytes], { type: 'audio/wav' });
-}
 
 function encodeWAV(samples: Float32Array, sampleRate: number): ArrayBuffer {
   const buffer = new ArrayBuffer(44 + samples.length * 2);
@@ -263,22 +209,6 @@ export default function VoiceGuardPage() {
     }
   };
 
-  /* ─── 1-Click Test Bench Preset Samples ─── */
-  const runTestSample = async (type: 'human' | 'clone') => {
-    try {
-      setIsAnalyzingRecord(true);
-      const testBlob = await generateSyntheticTestAudio(type);
-      setRecordedBlob(testBlob);
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-      blobUrlRef.current = URL.createObjectURL(testBlob);
-      setHasRecording(true);
-      await analyzeBlob(testBlob, type === 'human' ? 'sample_authentic_voice.wav' : 'sample_cloned_attack.wav');
-    } catch (err) {
-      console.error('Test sample error:', err);
-    } finally {
-      setIsAnalyzingRecord(false);
-    }
-  };
 
   /* ─── Recording ─── */
   const startRecording = useCallback(async () => {
